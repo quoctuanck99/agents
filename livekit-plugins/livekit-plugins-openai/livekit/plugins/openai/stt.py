@@ -90,6 +90,7 @@ class STT(stt.STT):
         api_key: NotGivenOr[str] = NOT_GIVEN,
         client: openai.AsyncClient | None = None,
         use_realtime: bool = False,
+        post_process_evt_by_logprobs: bool = False,
     ):
         """
         Create a new instance of OpenAI STT.
@@ -125,6 +126,7 @@ class STT(stt.STT):
             prompt=prompt,
             turn_detection=turn_detection,
         )
+        self.post_process_evt_by_logprobs = post_process_evt_by_logprobs
         if is_given(noise_reduction_type):
             self._opts.noise_reduction_type = noise_reduction_type
 
@@ -511,8 +513,11 @@ class SpeechStream(stt.SpeechStream):
                         current_text = ""
                         transcript = data.get("transcript", "")
                         logger.info(data)
-                        transcript_is_ok = filter_transcripts_based_on_log_probs(data["logprobs"])
-                        if transcript and transcript_is_ok:
+                        if (self._stt.post_process_evt_by_logprobs and
+                                not filter_transcripts_based_on_log_probs(data["logprobs"])):
+                                continue
+
+                        if transcript:
                             self._event_ch.send_nowait(
                                 stt.SpeechEvent(
                                     type=stt.SpeechEventType.FINAL_TRANSCRIPT,

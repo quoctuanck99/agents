@@ -238,7 +238,7 @@ def filter_transcripts_based_on_log_probs(log_probs: list, single_word_threshold
     else:
         for prob in log_probs:
             if not re.sub(r"\p{P}+", "", prob["token"]):
-                logger.info(f"word {prob['token']} is invalid")
+                logger.info("Ignore character '%s' | %s" % (prob["token"], prob["token"]))
             else:
                 total_valid += 1
                 if prob["logprob"] > multiple_word_threshold:
