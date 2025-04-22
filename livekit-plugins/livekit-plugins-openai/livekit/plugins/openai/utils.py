@@ -1,5 +1,5 @@
 from __future__ import annotations
-
+import regex as re
 import base64
 import os
 from collections import OrderedDict
@@ -221,3 +221,31 @@ def _to_image_content(image: llm.ImageContent, cache_key: Any) -> ChatCompletion
             "detail": img.inference_detail,
         },
     }
+
+def filter_transcripts_based_on_log_probs(log_probs: list, single_word_threshold: float =-1.5,
+                                         multiple_word_threshold: float=-0.15,
+                                         threshold: float = 0.6) -> bool:
+    accepted_prob_cnt = 0
+    total_valid = 0
+    if (
+            len(log_probs) == 1
+            and log_probs[0]["logprob"] > single_word_threshold
+    ):
+        logger.info(
+            f'{log_probs[0]["token"]} | {log_probs[0]["logprob"]}'
+        )
+        accepted_prob_cnt, total_valid = 1, 1
+    else:
+        for prob in log_probs:
+            if not re.sub(r"\p{P}+", "", prob["token"]):
+                logger.info(f"word {prob['token']} is invalid")
+            else:
+                total_valid += 1
+                if prob["logprob"] > multiple_word_threshold:
+                    accepted_prob_cnt += 1
+                    logger.info(f'{prob["token"]} | {prob["logprob"]}: ok')
+                else:
+                    logger.info(f'{prob["token"]} | {prob["logprob"]}: notok')
+    accepted_prob_percent = accepted_prob_cnt / total_valid
+    logger.info(f"accepted_prob_percent: {accepted_prob_percent}")
+    return accepted_prob_percent >= threshold
