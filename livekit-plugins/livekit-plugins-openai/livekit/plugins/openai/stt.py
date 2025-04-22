@@ -50,7 +50,7 @@ from openai.types.beta.realtime.transcription_session_update_param import (
 
 from .log import logger
 from .models import GroqAudioModels, STTModels
-from .utils import AsyncAzureADTokenProvider
+from .utils import AsyncAzureADTokenProvider, filter_transcripts_based_on_log_probs
 
 # OpenAI Realtime API has a timeout of 15 mins, we'll attempt to restart the session
 # before that timeout is reached
@@ -313,6 +313,9 @@ class STT(stt.STT):
                     "prompt": prompt,
                 },
                 "turn_detection": self._opts.turn_detection,
+                "include": [
+                    "item.input_audio_transcription.logprobs"
+                ]
             },
         }
         if self._opts.language:
@@ -504,7 +507,9 @@ class SpeechStream(stt.SpeechStream):
                     elif msg_type == "conversation.item.input_audio_transcription.completed":
                         current_text = ""
                         transcript = data.get("transcript", "")
-                        if transcript:
+                        logger.info(data)
+                        transcript_is_ok = filter_transcripts_based_on_log_probs(data["logprobs"])
+                        if transcript and transcript_is_ok:
                             self._event_ch.send_nowait(
                                 stt.SpeechEvent(
                                     type=stt.SpeechEventType.FINAL_TRANSCRIPT,
