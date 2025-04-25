@@ -106,7 +106,9 @@ class STT(stt.STT):
         """  # noqa: E501
 
         super().__init__(
-            capabilities=stt.STTCapabilities(streaming=use_realtime, interim_results=use_realtime)
+            capabilities=stt.STTCapabilities(
+                streaming=use_realtime, interim_results=use_realtime
+            )
         )
         if detect_language:
             language = ""
@@ -197,9 +199,11 @@ class STT(stt.STT):
             organization=organization,
             project=project,
             base_url=base_url,
-            timeout=timeout
-            if timeout
-            else httpx.Timeout(connect=15.0, read=5.0, write=5.0, pool=5.0),
+            timeout=(
+                timeout
+                if timeout
+                else httpx.Timeout(connect=15.0, read=5.0, write=5.0, pool=5.0)
+            ),
         )  # type: ignore
 
         return STT(
@@ -315,15 +319,13 @@ class STT(stt.STT):
                     "prompt": prompt,
                 },
                 "turn_detection": self._opts.turn_detection,
-                "include": [
-                    "item.input_audio_transcription.logprobs"
-                ]
+                "include": ["item.input_audio_transcription.logprobs"],
             },
         }
         if self._opts.language:
-            realtime_config["session"]["input_audio_transcription"]["language"] = (
-                self._opts.language
-            )
+            realtime_config["session"]["input_audio_transcription"][
+                "language"
+            ] = self._opts.language
 
         if self._opts.noise_reduction_type:
             realtime_config["session"]["input_audio_noise_reduction"] = {
@@ -367,7 +369,9 @@ class STT(stt.STT):
             if is_given(language):
                 self._opts.language = language
             data = rtc.combine_audio_frames(buffer).to_wav_bytes()
-            prompt = self._opts.prompt if is_given(self._opts.prompt) else openai.NOT_GIVEN
+            prompt = (
+                self._opts.prompt if is_given(self._opts.prompt) else openai.NOT_GIVEN
+            )
 
             format = "json"
             if self._opts.model == "whisper-1":
@@ -400,7 +404,10 @@ class STT(stt.STT):
             raise APITimeoutError() from None
         except openai.APIStatusError as e:
             raise APIStatusError(
-                e.message, status_code=e.status_code, request_id=e.request_id, body=e.body
+                e.message,
+                status_code=e.status_code,
+                request_id=e.request_id,
+                body=e.body,
             ) from None
         except Exception as e:
             raise APIConnectionError() from e
@@ -502,6 +509,7 @@ class SpeechStream(stt.SpeechStream):
                         self._event_ch.send_nowait(
                             stt.SpeechEvent(
                                 type=evt_type,
+                                request_id=data.get("item_id"),
                                 alternatives=[
                                     stt.SpeechData(
                                         text=current_text,
@@ -514,10 +522,14 @@ class SpeechStream(stt.SpeechStream):
                         delta = data.get("delta", "")
                         if delta:
                             current_text += delta
-                            if time.time() - last_interim_at > _delta_transcript_interval:
+                            if (
+                                time.time() - last_interim_at
+                                > _delta_transcript_interval
+                            ):
                                 self._event_ch.send_nowait(
                                     stt.SpeechEvent(
                                         type=stt.SpeechEventType.INTERIM_TRANSCRIPT,
+                                        request_id=data.get("item_id"),
                                         alternatives=[
                                             stt.SpeechData(
                                                 text=current_text,
@@ -527,18 +539,26 @@ class SpeechStream(stt.SpeechStream):
                                     )
                                 )
                                 last_interim_at = time.time()
-                    elif msg_type == "conversation.item.input_audio_transcription.completed":
+                    elif (
+                        msg_type
+                        == "conversation.item.input_audio_transcription.completed"
+                    ):
                         current_text = ""
                         transcript = data.get("transcript", "")
                         logger.info(data)
-                        if (self._stt.post_process_evt_by_logprobs and
-                                not filter_transcripts_based_on_log_probs(data["logprobs"])):
-                                continue
+                        if (
+                            self._stt.post_process_evt_by_logprobs
+                            and not filter_transcripts_based_on_log_probs(
+                                data["logprobs"]
+                            )
+                        ):
+                            continue
 
                         if transcript:
                             self._event_ch.send_nowait(
                                 stt.SpeechEvent(
                                     type=stt.SpeechEventType.FINAL_TRANSCRIPT,
+                                    request_id=data.get("item_id"),
                                     alternatives=[
                                         stt.SpeechData(
                                             text=transcript,
