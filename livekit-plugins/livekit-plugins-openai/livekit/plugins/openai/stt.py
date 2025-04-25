@@ -492,6 +492,27 @@ class SpeechStream(stt.SpeechStream):
                 try:
                     data = json.loads(msg.data)
                     msg_type = data.get("type")
+                    if msg_type in [
+                        "input_audio_buffer.speech_started",
+                        "input_audio_buffer.speech_stopped",
+                    ]:
+                        evt_type = ""
+                        match (msg_type):
+                            case "input_audio_buffer.speech_started":
+                                evt_type = stt.SpeechEventType.START_OF_SPEECH
+                            case "input_audio_buffer.speech_stopped":
+                                evt_type = stt.SpeechEventType.END_OF_SPEECH
+                        self._event_ch.send_nowait(
+                            stt.SpeechEvent(
+                                type=evt_type,
+                                alternatives=[
+                                    stt.SpeechData(
+                                        text=current_text,
+                                        language=self._language,
+                                    ),
+                                ],
+                            )
+                        )
                     if msg_type == "conversation.item.input_audio_transcription.delta":
                         delta = data.get("delta", "")
                         if delta:
