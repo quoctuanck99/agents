@@ -549,7 +549,7 @@ class SpeechStream(stt.SpeechStream):
                         if (
                             self._stt.post_process_evt_by_logprobs
                             and not filter_transcripts_based_on_log_probs(
-                                data["logprobs"]
+                                data.get("logprobs", [])
                             )
                         ):
                             continue
