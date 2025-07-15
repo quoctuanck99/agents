@@ -1,4 +1,7 @@
 from __future__ import annotations
+
+import logging
+
 import regex as re
 from collections.abc import Awaitable
 from typing import Callable, Union
@@ -10,9 +13,10 @@ from livekit.agents.llm.tool_context import (
     is_raw_function_tool,
 )
 from openai.types.chat import ChatCompletionToolParam
+import os
 
 AsyncAzureADTokenProvider = Callable[[], Union[str, Awaitable[str]]]
-
+logger = logging.getLogger(__name__)
 
 def get_base_url(base_url: str | None) -> str:
     if not base_url:
